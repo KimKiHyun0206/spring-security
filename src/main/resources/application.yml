@@ -1,0 +1,56 @@
+server:
+  port: 9001
+  shutdown: graceful
+  tomcat:
+    connection-timeout: 2s
+    keep-alive-timeout: 15s
+    threads:
+      max: 50
+      min-spare: 5
+
+spring:
+  application:
+    name: catalog-service
+  lifecycle:
+    timeout-per-shutdown-phase: 15s
+  config:
+    import: "optional:configserver:"
+  cloud:
+    config:
+      uri: http://localhost:8888
+      request-connect-timeout: 5000 # 5s
+      request-read-timeout: 5000 # 5s
+      fail-fast: false # In production, set to true
+      retry:
+        max-attempts: 6
+        initial-interval: 1000 # 1s
+        max-interval: 2000 # 2s
+        multiplier: 1.1
+  datasource:
+    username: root
+    password: letmein
+    url: jdbc:mysql://127.0.0.1:3306/sample
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      connection-timeout: 2000 #ms
+      maximum-pool-size: 5
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: create-drop
+    generate-ddl: true  # JPA에서 DDL을 생성하도록 설정함  실제 운영에서 false로 변경해야함
+    show-sql: true # 실행 창에서 SQL을 보여주도록 설정함
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8080/realms/PolarBookshop
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: refresh
+
+polar:
+  greeting: Welcome to the local book catalog!
