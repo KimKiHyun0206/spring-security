@@ -1,5 +1,4 @@
 server:
-  port: 9001
   shutdown: graceful
   tomcat:
     connection-timeout: 2s
@@ -9,23 +8,6 @@ server:
       min-spare: 5
 
 spring:
-  application:
-    name: catalog-service
-  lifecycle:
-    timeout-per-shutdown-phase: 15s
-  config:
-    import: "optional:configserver:"
-  cloud:
-    config:
-      uri: http://localhost:8888
-      request-connect-timeout: 5000 # 5s
-      request-read-timeout: 5000 # 5s
-      fail-fast: false # In production, set to true
-      retry:
-        max-attempts: 6
-        initial-interval: 1000 # 1s
-        max-interval: 2000 # 2s
-        multiplier: 1.1
   datasource:
     username: root
     password: letmein
@@ -40,17 +22,24 @@ spring:
       ddl-auto: create-drop
     generate-ddl: true  # JPA에서 DDL을 생성하도록 설정함  실제 운영에서 false로 변경해야함
     show-sql: true # 실행 창에서 SQL을 보여주도록 설정함
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          issuer-uri: http://localhost:8080/realms/PolarBookshop
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    groups-order: DESC
+    operationsSorter: method
+    disable-swagger-default-url: true
+    display-request-duration: true
+  api-docs:
+    path: /api-docs
+  show-actuator: true
+  default-consumes-media-type: application/json
+  default-produces-media-type: application/json
+  paths-to-match:
+    - /v1/**
 
-management:
-  endpoints:
-    web:
-      exposure:
-        include: refresh
-
-polar:
-  greeting: Welcome to the local book catalog!
+jwt:
+  header: Authorization
+  #HS512 알고리즘을 사용할 것이기 때문에 512bit, 즉 64byte 이상의 secret key를 사용해야 한다.
+  #echo 'silvernine-tech-spring-boot-jwt-tutorial-secret-silvernine-tech-spring-boot-jwt-tutorial-secret'|base64
+  secret: c2lsdmVybmluZS10ZWNoLXNwcmluZy1ib290LWp3dC10dXRvcmlhbC1zZWNyZXQtc2lsdmVybmluZS10ZWNoLXNwcmluZy1ib290LWp3dC10dXRvcmlhbC1zZWNyZXQK
+  token-validity-in-seconds: 86400

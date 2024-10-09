@@ -1,42 +1,81 @@
 package com.study.springsecurity.config;
 
+import com.study.springsecurity.jwt.JwtAccessDeniedHandler;
+import com.study.springsecurity.jwt.JwtAuthenticationEntryPoint;
+import com.study.springsecurity.jwt.JwtSecurityConfig;
+import com.study.springsecurity.jwt.TokenProvider;
+import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.security.servlet.PathRequest;
 import org.springframework.context.annotation.Bean;
-import org.springframework.http.HttpMethod;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
-import org.springframework.security.config.annotation.web.configurers.oauth2.server.resource.OAuth2ResourceServerConfigurer;
+import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
-import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.filter.CorsFilter;
 
+@RequiredArgsConstructor
 @EnableWebSecurity
+@EnableMethodSecurity
+@Configuration
 public class SecurityConfig {
+    private final TokenProvider tokenProvider;
+    private final CorsFilter corsFilter;
+    private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+    private final JwtAccessDeniedHandler jwtAccessDeniedHandler;
 
-	@Bean
-	SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-		return http
-				.authorizeHttpRequests(authorize -> authorize
-						.mvcMatchers(HttpMethod.GET, "/", "/books/**").permitAll()
-						.anyRequest().hasRole("employee")
-				)
-				.oauth2ResourceServer(OAuth2ResourceServerConfigurer::jwt)
-				.sessionManagement(sessionManagement ->
-						sessionManagement.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-				.csrf(AbstractHttpConfigurer::disable)
-				.build();
-	}
+/*    public SecurityConfig(
+        TokenProvider tokenProvider,
+        CorsFilter corsFilter,
+        JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint,
+        JwtAccessDeniedHandler jwtAccessDeniedHandler
+    ) {
+        this.tokenProvider = tokenProvider;
+        this.corsFilter = corsFilter;
+        this.jwtAuthenticationEntryPoint = jwtAuthenticationEntryPoint;
+        this.jwtAccessDeniedHandler = jwtAccessDeniedHandler;
+    }*/
 
-	@Bean
-	public JwtAuthenticationConverter jwtAuthenticationConverter() {
-		var jwtGrantedAuthoritiesConverter = new JwtGrantedAuthoritiesConverter();
-		jwtGrantedAuthoritiesConverter.setAuthorityPrefix("ROLE_");
-		jwtGrantedAuthoritiesConverter.setAuthoritiesClaimName("roles");
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
 
-		var jwtAuthenticationConverter = new JwtAuthenticationConverter();
-		jwtAuthenticationConverter.setJwtGrantedAuthoritiesConverter(jwtGrantedAuthoritiesConverter);
-		return jwtAuthenticationConverter;
-	}
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        http
+            // token을 사용하는 방식이기 때문에 csrf를 disable합니다.
+            .csrf(AbstractHttpConfigurer::disable)
 
+            .addFilterBefore(corsFilter, UsernamePasswordAuthenticationFilter.class)
+            .exceptionHandling(exceptionHandling -> exceptionHandling
+                .accessDeniedHandler(jwtAccessDeniedHandler)
+                .authenticationEntryPoint(jwtAuthenticationEntryPoint)
+            )
+
+            .authorizeHttpRequests(authorizeHttpRequests -> authorizeHttpRequests
+                .requestMatchers("/api/hello", "/api/authenticate", "/api/signup","/swagger-ui.html").permitAll()
+                //.requestMatchers(PathRequest.toH2Console()).permitAll()
+                .anyRequest().authenticated()
+            )
+
+            // 세션을 사용하지 않기 때문에 STATELESS로 설정
+            .sessionManagement(sessionManagement ->
+                sessionManagement.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+            )
+
+            // enable h2-console
+            .headers(headers ->
+                headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin)
+            )
+
+            .with(new JwtSecurityConfig(tokenProvider), customizer -> {});
+        return http.build();
+    }
 }
